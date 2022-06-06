@@ -53,52 +53,17 @@ public class OTPActivity extends AppCompatActivity {
 
         binding.phoneLbl.setText("Verify " + phoneNumber);
 
-        PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
-                .setPhoneNumber(phoneNumber)
-                .setTimeout(60L, TimeUnit.SECONDS)
-                .setActivity(OTPActivity.this)
-                .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                    @Override
-                    public void onVerificationCompleted(@NonNull PhoneAuthCredential phoneAuthCredential) {
+        sendVerificationCode(phoneNumber);
 
-                    }
 
-                    @Override
-                    public void onVerificationFailed(@NonNull FirebaseException e) {
 
-                    }
-
-                    @Override
-                    public void onCodeSent(@NonNull String verifyId, @NonNull PhoneAuthProvider.ForceResendingToken forceResendingToken) {
-                        super.onCodeSent(verifyId, forceResendingToken);
-                        dialog.dismiss();
-                        verificationId = verifyId;
-
-                        InputMethodManager imm = (InputMethodManager)   getSystemService(Context.INPUT_METHOD_SERVICE);
-                        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
-                        binding.otpView.requestFocus();
-                    }
-                }).build();
-
-        PhoneAuthProvider.verifyPhoneNumber(options);
 
         binding.otpView.setOtpCompletionListener(new OnOtpCompletionListener() {
+
             @Override
             public void onOtpCompleted(String otp) {
                 PhoneAuthCredential credential = PhoneAuthProvider.getCredential(verificationId, otp);
-
-                auth.signInWithCredential(credential).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        if(task.isSuccessful()) {
-                            Intent intent = new Intent(OTPActivity.this, SetupProfileActivity.class);
-                            startActivity(intent);
-                            finishAffinity();
-                        } else {
-                            Toast.makeText(OTPActivity.this, "Failed.", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                });
+                signInWithCredential(credential);
             }
         });
 
@@ -106,5 +71,57 @@ public class OTPActivity extends AppCompatActivity {
 
 
 
+    }
+
+
+    private void sendVerificationCode(String number) {
+        PhoneAuthOptions options =
+                PhoneAuthOptions.newBuilder(auth)
+                        .setPhoneNumber(number)            // Phone number to verify
+                        .setTimeout(60L, TimeUnit.SECONDS) // Timeout and unit
+                        .setActivity(this)                 // Activity (for callback binding)
+                        .setCallbacks(mCallBack)           // OnVerificationStateChangedCallbacks
+                        .build();
+        PhoneAuthProvider.verifyPhoneNumber(options);
+    }
+
+    private PhoneAuthProvider.OnVerificationStateChangedCallbacks
+            mCallBack = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+        @Override
+        public void onCodeSent(String s, PhoneAuthProvider.ForceResendingToken forceResendingToken) {
+            super.onCodeSent(s, forceResendingToken);
+            dialog.dismiss();
+            verificationId = s;
+        }
+        @Override
+        public void onVerificationCompleted(PhoneAuthCredential phoneAuthCredential) {
+            final String code = phoneAuthCredential.getSmsCode();
+
+        }
+
+        @Override
+        public void onVerificationFailed(FirebaseException e) {
+            Toast.makeText(OTPActivity.this, e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    };
+
+
+    private void signInWithCredential(PhoneAuthCredential credential) {
+        auth.signInWithCredential(credential)
+                .addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            String phoneNumber = getIntent().getStringExtra("PhoneNo");
+                            Intent intent = new Intent(OTPActivity.this, SetupProfileActivity.class);
+                            startActivity(intent);
+                            finishAffinity();
+
+
+                        } else {
+                            Toast.makeText(OTPActivity.this, "Failed.", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
     }
 }
